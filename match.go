@@ -13,6 +13,11 @@ const (
 	MATCH_KIND_COPY
 )
 
+// Maximum size of the output buffer in bytes. We'll flush the match once it
+// gets this large. As consequence, this is the maximum size of a LITERAL
+// command we'll generate on our deltas.
+const MAX_OUTPUT_BUFFER = 16 * 1024 * 1024
+
 type match struct {
 	kind   matchKind
 	pos    uint64
@@ -134,6 +139,12 @@ func (m *match) add(kind matchKind, pos, len uint64) error {
 	case MATCH_KIND_LITERAL:
 		m.lit = append(m.lit, byte(pos))
 		m.len += 1
+		if m.len >= MAX_OUTPUT_BUFFER {
+			err := m.flush()
+			if err != nil {
+				return err
+			}
+		}
 	case MATCH_KIND_COPY:
 		m.lit = []byte{}
 		if m.pos+m.len != pos {
